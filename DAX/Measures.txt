@@ -1,0 +1,160 @@
+1. Top Six Count = 
+
+VAR SelectedSeason =
+    SELECTEDVALUE(ipl_matches_data[season])
+
+VAR SeasonFours =
+    FILTER(
+        ball_by_ball_data,
+        RELATED(ipl_matches_data[season]) = SelectedSeason &&
+        ball_by_ball_data[batter_runs] = 6
+    )
+
+VAR FourSummary =
+    SUMMARIZE(
+        SeasonFours,
+        ball_by_ball_data[batter],
+        "FoursCount",
+            COUNTROWS(
+                FILTER(
+                    SeasonFours,
+                    ball_by_ball_data[batter] =
+                        EARLIER(ball_by_ball_data[batter])
+                )
+            )
+    )
+
+VAR MaxFours =
+    MAXX(FourSummary, [FoursCount])
+
+RETURN
+    MaxFours
+
+
+
+2. Top Fours Count = 
+
+VAR SelectedSeason =
+    SELECTEDVALUE(ipl_matches_data[season])
+
+VAR SeasonFours =
+    FILTER(
+        ball_by_ball_data,
+        RELATED(ipl_matches_data[season]) = SelectedSeason &&
+        ball_by_ball_data[batter_runs] = 4
+    )
+
+VAR FourSummary =
+    SUMMARIZE(
+        SeasonFours,
+        ball_by_ball_data[batter],
+        "FoursCount",
+            COUNTROWS(
+                FILTER(
+                    SeasonFours,
+                    ball_by_ball_data[batter] =
+                        EARLIER(ball_by_ball_data[batter])
+                )
+            )
+    )
+
+VAR MaxFours =
+    MAXX(FourSummary, [FoursCount])
+
+RETURN
+    MaxFours
+
+
+
+
+3. Orange Cap Team Name = 
+
+VAR selectedSeason =
+    SELECTEDVALUE ( ipl_matches_data[season] )
+
+VAR SeasonDataOnly =
+    FILTER (
+        ball_by_ball_data,
+        RELATED ( ipl_matches_data[season] ) = selectedSeason
+    )
+
+VAR RunSummary =
+    SUMMARIZE (
+        SeasonDataOnly,
+        ball_by_ball_data[batter],
+        "Total Runs", SUM ( ball_by_ball_data[batter_runs] )
+    )
+
+VAR MaxRuns =
+    MAXX ( RunSummary, [Total Runs] )
+
+VAR TopScorer =
+    CALCULATETABLE (
+        VALUES ( ball_by_ball_data[batter] ),
+        FILTER ( RunSummary, [Total Runs] = MaxRuns )
+    )
+
+VAR FullTeamName =
+    CALCULATE (
+        MAX ( ball_by_ball_data[team_batting] ),
+        FILTER (
+            SeasonDataOnly,
+            ball_by_ball_data[batter]
+                = MAXX ( TopScorer, ball_by_ball_data[batter] )
+        )
+    )
+
+RETURN
+    FullTeamName
+
+
+
+
+4. Purple Cap Holder = 
+VAR SelectedSeason =
+    SELECTEDVALUE(ipl_matches_data[season])
+
+-- Filter: wickets in selected season, exclude non-bowler dismissals
+VAR SeasonWickets =
+    FILTER(
+        ball_by_ball_data,
+        RELATED(ipl_matches_data[season]) = SelectedSeason &&
+        ball_by_ball_data[is_wicket] = TRUE() &&
+        NOT ball_by_ball_data[wicket_kind]
+            IN {
+                "run out",
+                "retired hurt",
+                "obstructing the field",
+                "retired out"
+            }
+    )
+
+-- Summarize bowler and count wickets
+VAR WicketSummary =
+    SUMMARIZE(
+        SeasonWickets,
+        ball_by_ball_data[bowler],
+        "WicketCount",
+            COUNTROWS(
+                FILTER(
+                    SeasonWickets,
+                    ball_by_ball_data[bowler]
+                        = EARLIER(ball_by_ball_data[bowler])
+                )
+            )
+    )
+
+-- Find highest wicket count
+VAR MaxWickets =
+    MAXX(WicketSummary, [WicketCount])
+
+-- Get the bowler(s) with that wicket count
+VAR TopBowler =
+    CALCULATETABLE(
+        VALUES(ball_by_ball_data[bowler]),
+        FILTER(WicketSummary, [WicketCount] = MaxWickets)
+    )
+
+-- Return the name (if multiple, it picks one alphabetically)
+RETURN
+    MAXX(TopBowler, ball_by_ball_data[bowler])
